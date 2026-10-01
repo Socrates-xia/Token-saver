@@ -3,7 +3,7 @@ name: token-saver
 display_name: Token Saver · 免费额度外包
 display_name_en: Token Saver Free-Quota Offloader
 category: business-operations
-version: 1.0.3
+version: 1.0.4
 author: 苏格拉底-夏
 description: "把简单任务外包给本机网页端免费 AI（DeepSeek / 豆包 / Kimi / 腾讯元宝）以节省 token 花费。触发场景：长翻译、长摘要、多维度资料整理、表格生成、润色改写、格式转换、术语解释、写正则、单位换算；用户提到「省 token / 外包 / 用免费额度 / 别费钱」时也用它。支持同一话题多轮追问、把一份活拆成互不依赖的多部分并行派给多家站点，以及让网页端生成图片并取回本地。"
 description_zh: "把简单任务外包给本机网页端免费 AI 以节省 token 花费。适用于长翻译、长摘要、多维度资料整理、表格生成、润色改写、格式转换、术语解释、写正则、单位换算等标准化任务，也支持同一话题多轮追问与多站点并行外包。当用户提到「省 token / 外包 / 用免费额度 / 别费钱」时需要它。"
@@ -41,6 +41,10 @@ allowed-tools: Read, Bash, Glob, Grep
 >
 > 参考的开源实现（`zerotoken` / `openclaw-zero-token` / `deepseek-free-api` 等）
 > 均带同样的声明。用户不认同这些边界时，不要协助使用。
+>
+> 上面这段不是"建议"，是**许可条款**：本项目按 **PolyForm Noncommercial License
+> 1.0.0** 发布（完整条款见包根 `LICENSE`），允许个人学习、研究、实验、业余项目
+> 以及非营利组织/教育机构使用，**禁止一切商业用途**。违反即自动失去授权。
 
 ## 一、先判断值不值得（这一步不能省）
 
