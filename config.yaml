@@ -1,0 +1,136 @@
+# Token Saver 配置（手写文档，程序不会覆盖它）
+# 程序自己写的改动在 data/overrides.yaml，两层会合并，overrides 优先。
+
+server:
+  host: 127.0.0.1
+  port: 8787
+
+browser:
+  # msedge | chrome | 留空用 playwright 自带内核
+  channel: msedge
+  # 网页端普遍有反自动化检测，建议保持 false（有可见窗口）
+  headless: false
+  locale: zh-CN
+
+runtime:
+  ask_timeout: 180        # 单次最长等待秒数
+  stable_window: 3.5      # 答案稳定多久判定结束（流式站建议 ≥3）
+  reset_mode: always      # always=每次提问前新开会话，避免上下文污染
+  max_retries: 1          # 一个站点失败后，最多再试几家
+  # 追问时是否复用网页端页面里的会话：
+  #   true  （默认）—— 页面还在同一个会话，就直接接着问、**不重发历史**（省 token）；
+  #                    会话丢了（浏览器被关 / 站点跳回首页）才回填历史兜底。
+  #   false         —— 每轮都把历史回填一遍，确保连贯，但费 token。
+  # 注意：开着时个别站点偶尔会"串话题"（页面看着有上文，模型却答错对象），
+  # 这种事由反问/跑题检测抓出来并自动带历史重试，兜得住。
+  reuse_page_session: true
+  # 支持直连的站点（目前只有 DeepSeek）优先走纯 HTTP，**不开浏览器**：
+  #   首字延迟 7~15s → 1~2s，失败自动退回浏览器，所以默认开着很安全。
+  # 直连需要登录凭证：Cookie 从 data/state/deepseek.json 读，
+  # Bearer 从页面 localStorage 收（第一次仍要开一次浏览器去收，之后就是纯 HTTP）。
+  # 想全体关掉、只用浏览器，把它设成 false 即可。
+  http_first: true
+  # 空闲自动关闭窗口：最后一次用到某个站点之后，闲置超过这么多秒就关掉它的
+  # 浏览器窗口（0 = 不用这个功能，窗口一直留着）。
+  #   · 还在追问就没事：只要下一问发生在窗口内，计时会续上，窗口不关，
+  #     而且走的是"复用网页会话、不重发历史"的最省 token 路线；
+  #   · 被关掉也不影响正确性：下次调用自动重开、按话题类型决定回填历史，
+  #     只是多花几秒启动（登录态存在 profile 里，不用重新扫码）。
+  # 想立刻关掉窗口：控制台上有「关闭所有窗口」按钮，或 POST /api/close，
+  # 或让 Agent 调 MCP 工具 close_windows。
+  idle_close_seconds: 180
+  # 并行外包（/api/fanout、MCP 的 fanout_ask）最多同时开几条"车道"。
+  # 一条车道 = 一家站点 = 一个可见浏览器窗口。部分会轮转分配到各车道，
+  # 同一家站点上的多个部分自动串行（一个站点只有一个页面，同时打会乱）。
+  # 默认 4：本机 4 家已登录站点正好跑满。调大前先掂量内存和站点风控。
+  fanout_max_lanes: 4
+
+pricing:
+  # 省钱估算的对照单价：即"这笔调用若走主模型本来要花多少"
+  reference_input_usd_per_mtok: 3.0
+  reference_output_usd_per_mtok: 15.0
+  reference_model: "主模型（默认按 Sonnet 级估算）"
+
+# 站点开关与优先级：priority 越大越优先被自动路由选中
+#
+# 关于"深度思考"自动开启 —— 各家实现不一样，共三类：
+#   toggles: 真开关，点一下切 on/off，靠 aria-pressed 等属性判断状态
+#   picks:   假开关，其实是"选模型"：点开下拉 → 选菜单项
+#            值是 {下拉触发元素的定位文字或CSS选择器: 菜单项文字}
+#   都没有:   界面上根本没这个开关（kimi / gemini / 豆包）—— 见各自注释
+#
+# 状态读不到的站点，程序会"不动它"并回报 unknown，
+# 免得把本来就开着的思考模式给点关了。
+providers:
+  deepseek:
+    enabled: true
+    priority: 30
+    toggles:
+      深度思考: true
+    # 纯 HTTP 直连（默认开）。关掉就永远走浏览器：
+    #   http:
+    #     enabled: false
+    # 直连失败的几种情况都会自动退回浏览器，不需要在这里做什么：
+    #   · 还没收过凭证 → 走一次浏览器，顺手把 Bearer 收下来
+    #   · Bearer 过期（401）→ 作废缓存，退回浏览器，下次再用直连
+    http:
+      enabled: true
+  yuanbao:
+    enabled: true
+    priority: 20
+    # 元宝是"选模型"：按钮可见文字会随选中项变化，所以用元宝自带的测试属性定位
+    # （最稳，不受文案改版影响）。菜单里另有"专家模式"——那是联网跑多步的
+    # Agent 模式，会吐检索计划而不是答案，所以这里只选"深度思考"。
+    picks:
+      "[data-thinking-mode-switcher-trigger='true']": 深度思考
+  doubao:
+    enabled: true
+    priority: 10
+    # 实测（2026-09-30，登录态）：豆包当前版本【已取消"深度思考"开关】，
+    # 模型下拉里只有「豆包 快速」和「豆包 2.1 Turbo [专家]」两项。
+    # 故自动切到最强的 2.1 Turbo。想保持默认快速模型，删掉下面 picks 即可。
+    picks:
+      "[data-valid-btn='model-select-action-btn']": 2.1 Turbo
+  kimi:
+    enabled: true
+    priority: 10
+    # Kimi 没有独立的"深度思考"开关，但输入框右下角的模型选择器里能选 K3。
+    # 点开 [data-testid='model-select-trigger']（显示"快速 · 进阶"）后可选：
+    #   快速 / K2.8 Preview / K3（全能旗舰）
+    # 这就是所谓的"进阶模式"。另有个二级项「思考强度」。
+    picks:
+      "[data-testid='model-select-trigger']": K3
+  tongyi:
+    enabled: false
+    priority: 0
+    toggles:
+      深度思考: true      # 未登录，未能实测
+  gemini:
+    enabled: false
+    priority: 0
+    # 网页端没有思考强度开关：2.5 Flash 默认就在思考，要更强得换 Pro 模型。
+  chatgpt:
+    enabled: false
+    priority: 0
+    toggles:
+      Think longer: true  # 只在英文界面 + 推理模型下出现，找不到会自动跳过
+
+# 站点改版导致抓不到答案时，可以在这里补上正确选择器，无需改代码：
+# providers:
+#   deepseek:
+#     enabled: true
+#     selectors:
+#       input:        ["textarea#chat-input"]
+#       answer:       [".ds-markdown"]
+#       send_button:  ["button[aria-label*='发送']"]
+#       new_chat:     ["text=新建对话"]
+#       copy_button:  ["button[aria-label*='复制']"]
+#       # 进场弹窗（更新日志、功能介绍…）的关闭键。压住输入框会导致后续
+#       # 每一步点击都超时 —— 症状是"卡住不动"，看不出是弹窗的锅。
+#       # 只写"弹窗容器里的关闭键"，别写全局 [class*='close']，
+#       # 否则会把页面上正常的按钮点掉。
+#       popup_close:  ["div[class*='容器class'] [class*='close' i]"]
+# 每项都是候选列表，按顺序尝试；填错不会崩，只会回落到通用启发式。
+#
+# 自动清理分四级（Esc / 站点选择器 / 通用启发式 / 点遮罩），
+# 实际命中哪一级会写在返回结果 via 字段末尾： [清弹窗:round1:Esc]

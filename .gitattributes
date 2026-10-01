@@ -1,0 +1,16 @@
+# 行尾：原样存、原样取，禁止 Git 做任何转换。
+#
+# 为什么需要这个文件：本包**刻意**是混合行尾 —— 26 个纯 CRLF、37 个纯 LF
+# （`core/pool.py`、`SKILL.md`、`server.py` 等是 CRLF；
+#   `core/http_deepseek.py`、`tools/*.py`、`README.md` 等是 LF）。
+# 这不是疏忽，是发布产物的字节特征：`build_zip.py` 打出来的 zip 就是这些字节，
+# Release 里那份 zip 的 SHA256 也是按这些字节算的。
+#
+# Windows 上 `core.autocrlf` 默认是 true，Git 会把 CRLF 全部转成 LF 再入库 ——
+# 实测过：`git show :core/pool.py` 里 762 个 CRLF 变成了 0 个。
+# 后果是别人 clone 后重新打包，得到的 zip 和 Release 里那份**对不上**，
+# 而且每次 `git status` 都可能刷出一堆假的"已修改"。
+#
+# `-text` 的含义：把这些文件当二进制看待，不做行尾规范化、也不在 checkout 时转换。
+# 文本文件的 diff、blame、高亮都照常工作（那是靠内容里的 NUL 字节判断的）。
+* -text

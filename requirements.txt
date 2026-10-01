@@ -1,0 +1,9 @@
+fastapi>=0.110
+uvicorn>=0.27
+playwright>=1.40
+pyyaml>=6.0
+mcp>=1.0
+httpx>=0.27
+# DeepSeek 纯 HTTP 直连的 PoW 求解器需要它（跑官方那份 sha3 WASM）。
+# 装不上也不影响使用 —— 会退回浏览器路线，只是慢一些。
+wasmtime>=20.0
